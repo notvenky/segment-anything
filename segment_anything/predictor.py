@@ -97,7 +97,7 @@ class SamPredictor:
         mask_input: Optional[np.ndarray] = None,
         multimask_output: bool = True,
         return_logits: bool = False,
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Predict masks for the given input prompts, using the currently set image.
 
@@ -151,7 +151,7 @@ class SamPredictor:
             mask_input_torch = torch.as_tensor(mask_input, dtype=torch.float, device=self.device)
             mask_input_torch = mask_input_torch[None, :, :, :]
 
-        masks, iou_predictions, low_res_masks = self.predict_torch(
+        masks, iou_predictions, low_res_masks, hidden_states, source_embeddings = self.predict_torch(
             coords_torch,
             labels_torch,
             box_torch,
@@ -160,10 +160,10 @@ class SamPredictor:
             return_logits=return_logits,
         )
 
-        masks_np = masks[0].detach().cpu().numpy()
-        iou_predictions_np = iou_predictions[0].detach().cpu().numpy()
-        low_res_masks_np = low_res_masks[0].detach().cpu().numpy()
-        return masks_np, iou_predictions_np, low_res_masks_np
+        masks = masks[0].detach().cpu().numpy()
+        iou_predictions = iou_predictions[0].detach().cpu().numpy()
+        low_res_masks = low_res_masks[0].detach().cpu().numpy()
+        return masks, iou_predictions, low_res_masks, hidden_states, source_embeddings
 
     @torch.no_grad()
     def predict_torch(
@@ -186,7 +186,7 @@ class SamPredictor:
           point_labels (torch.Tensor or None): A BxN array of labels for the
             point prompts. 1 indicates a foreground point and 0 indicates a
             background point.
-          boxes (np.ndarray or None): A Bx4 array given a box prompt to the
+          box (np.ndarray or None): A Bx4 array given a box prompt to the
             model, in XYXY format.
           mask_input (np.ndarray): A low resolution mask input to the model, typically
             coming from a previous prediction iteration. Has form Bx1xHxW, where
@@ -226,7 +226,7 @@ class SamPredictor:
         )
 
         # Predict masks
-        low_res_masks, iou_predictions = self.model.mask_decoder(
+        low_res_masks, iou_predictions, hidden_states, source_embeddings = self.model.mask_decoder(
             image_embeddings=self.features,
             image_pe=self.model.prompt_encoder.get_dense_pe(),
             sparse_prompt_embeddings=sparse_embeddings,
@@ -240,7 +240,9 @@ class SamPredictor:
         if not return_logits:
             masks = masks > self.model.mask_threshold
 
-        return masks, iou_predictions, low_res_masks
+        # import ipdb; ipdb.set_trace()
+
+        return masks, iou_predictions, low_res_masks, hidden_states, source_embeddings
 
     def get_image_embedding(self) -> torch.Tensor:
         """

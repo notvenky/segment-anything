@@ -85,8 +85,8 @@ class Sam(nn.Module):
           (list(dict)): A list over input images, where each element is
             as dictionary with the following keys.
               'masks': (torch.Tensor) Batched binary mask predictions,
-                with shape BxCxHxW, where B is the number of input prompts,
-                C is determined by multimask_output, and (H, W) is the
+                with shape BxCxHxW, where B is the number of input promts,
+                C is determiend by multimask_output, and (H, W) is the
                 original size of the image.
               'iou_predictions': (torch.Tensor) The model's predictions
                 of mask quality, in shape BxC.
@@ -108,7 +108,7 @@ class Sam(nn.Module):
                 boxes=image_record.get("boxes", None),
                 masks=image_record.get("mask_inputs", None),
             )
-            low_res_masks, iou_predictions = self.mask_decoder(
+            low_res_masks, iou_predictions, hidden_states, source_embeddings = self.mask_decoder(
                 image_embeddings=curr_embedding.unsqueeze(0),
                 image_pe=self.prompt_encoder.get_dense_pe(),
                 sparse_prompt_embeddings=sparse_embeddings,
@@ -126,8 +126,11 @@ class Sam(nn.Module):
                     "masks": masks,
                     "iou_predictions": iou_predictions,
                     "low_res_logits": low_res_masks,
+                    "hidden_states": hidden_states,
+                    "source_embeddings": source_embeddings,
                 }
             )
+        # import ipdb; ipdb.set_trace()
         return outputs
 
     def postprocess_masks(
@@ -159,6 +162,7 @@ class Sam(nn.Module):
         )
         masks = masks[..., : input_size[0], : input_size[1]]
         masks = F.interpolate(masks, original_size, mode="bilinear", align_corners=False)
+        # import ipdb; ipdb.set_trace()
         return masks
 
     def preprocess(self, x: torch.Tensor) -> torch.Tensor:
